@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- E-3안 : 그라데이션 비행기 + 항로(뒤 경유지·앞 진행선) -->
+  <defs>
+    <linearGradient id="g" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5B8DEF"/>
+      <stop offset="55%" stop-color="#8F7BF3"/>
+      <stop offset="100%" stop-color="#C9A8F7"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#7B8CF0" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#EEEEF2" stroke-width="3"/>
+  <!-- 지나온 항로 + 경유지(크게) -->
+  <path d="M76 436 C 152 436, 204 414, 262 360" fill="none" stroke="#C9CBD6" stroke-width="11"
+        stroke-linecap="round" stroke-dasharray="2 32"/>
+  <circle cx="112" cy="435" r="18" fill="#059669"/>
+  <circle cx="186" cy="422" r="18" fill="#d97706"/>
+  <circle cx="242" cy="380" r="18" fill="#6366f1"/>
+  <!-- 앞으로 이어지는 항로 -->
+  <path d="M368 148 C 402 116, 428 92, 448 66" fill="none" stroke="#C9CBD6" stroke-width="11"
+        stroke-linecap="round" stroke-dasharray="2 32"/>
+  <!-- 그라데이션 비행기 -->
+  <g transform="translate(276,240) rotate(45) scale(0.74)" filter="url(#soft)">
+    <path fill="url(#g)" d="M0,-196
+      C18,-196 27,-162 27,-128
+      L27,-56
+      L182,44 L182,78 L27,38
+      L27,118
+      L76,156 L76,186 L13,169
+      Q0,188 -13,169
+      L-76,186 L-76,156 L-27,118
+      L-27,38 L-182,78 L-182,44 L-27,-56
+      L-27,-128
+      C-27,-162 -18,-196 0,-196 Z"/>
+  </g>
+</svg>

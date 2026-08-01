@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 여행기록 | Travel Archive</title>
+<link rel="icon" type="image/svg+xml" href="travel-favicon.svg">
+<link rel="apple-touch-icon" href="travel-icon-512.png">
+<meta name="apple-mobile-web-app-title" content="여행기록">
+<meta name="theme-color" content="#FAFAF9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -141,7 +145,16 @@ h1 em{font-style:normal;color:var(--mute)}
 .stats-sec{margin-top:56px}
 .stats-grid{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:44px}
 @media(max-width:720px){.stats-grid{grid-template-columns:1fr}}
-.chart-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.chart-title{font-size:13px;font-weight:700;color:var(--ink)}
+.mini-chips{display:flex;gap:5px;flex-wrap:wrap}
+.mchip{
+  font-family:inherit;font-size:10.5px;font-weight:700;color:var(--mute);
+  background:transparent;border:1px solid var(--line);border-radius:99px;
+  padding:3px 10px;cursor:pointer;transition:.15s;
+}
+.mchip:hover{border-color:var(--mute);color:var(--ink)}
+.mchip.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .chart-sub{font-size:11.5px;color:var(--mute);margin-bottom:14px}
 .ybars{display:flex;align-items:flex-end;gap:10px}
 .ybar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
@@ -199,13 +212,19 @@ footer a:hover{color:var(--ink)}
   <div class="sec-title">통계</div>
   <div class="stats-grid">
     <div>
-      <div class="chart-title">연도별 총 경비</div>
+      <div class="chart-head">
+        <div class="chart-title">연도별 경비</div>
+        <div class="mini-chips" id="yMetricChips"></div>
+      </div>
       <div class="chart-sub" id="ySub"></div>
       <div class="ybars" id="yBars"></div>
     </div>
     <div>
-      <div class="chart-title">1일 평균 경비</div>
-      <div class="chart-sub">총 경비 ÷ 여행일수 · 높은 순</div>
+      <div class="chart-head">
+        <div class="chart-title" id="dTitle">1일 평균 경비</div>
+        <div class="mini-chips" id="dMetricChips"></div>
+      </div>
+      <div class="chart-sub" id="dSub"></div>
       <div class="dbars" id="dBars"></div>
     </div>
   </div>
@@ -441,13 +460,36 @@ function render(){
 }
 
 /* ── 통계 ── */
+let yMetric='total', dMetric='total';
+const METRIC_LABEL={total:'총 경비',flight:'항공',hotel:'숙소',etc:'기타 경비'};
+const mval=(t,m)=>t.expense?(t.expense[m]||0):0;
+
+function metricChips(el,cur,metrics,onpick){
+  el.innerHTML='';
+  metrics.forEach(m=>{
+    const b=document.createElement('button');
+    b.className='mchip'+(m===cur?' on':'');
+    b.textContent=METRIC_LABEL[m];
+    b.onclick=()=>onpick(m);
+    el.appendChild(b);
+  });
+}
+
 function renderStats(sel,done){
+  metricChips(document.getElementById('yMetricChips'),yMetric,
+    ['total','flight','hotel','etc'],m=>{yMetric=m;renderStats(sel,done);});
+  metricChips(document.getElementById('dMetricChips'),dMetric,
+    ['total','flight','hotel','etc'],m=>{dMetric=m;renderStats(sel,done);});
+
+  // 연도별 합계 (선택 지표)
   const years=[...new Set(TRIPS.map(t=>t.start.slice(0,4)))].sort();
   const yTot=years.map(y=>({y,v:done.filter(t=>t.start.slice(0,4)===y)
-    .reduce((s,t)=>s+((t.expense&&t.expense.total)||0),0)}));
+    .reduce((s,t)=>s+mval(t,yMetric),0)}));
   const max=Math.max(...yTot.map(o=>o.v),1);
+  const scope=fRegion==='전체'?'다녀온 여행':fRegion+' 여행';
+  const yTotal=yTot.reduce((s,o)=>s+o.v,0);
   document.getElementById('ySub').textContent=
-    fRegion==='전체'?'다녀온 여행의 사용경비 합계':fRegion+' 여행의 사용경비 합계';
+    `${scope}의 ${METRIC_LABEL[yMetric]} 합계 · 전체 ${fmtMan(yTotal)}`;
   document.getElementById('yBars').innerHTML=yTot.map(o=>`
     <div class="ybar">
       <span class="val">${o.v?fmtMan(o.v):''}</span>
@@ -455,15 +497,24 @@ function renderStats(sel,done){
       <span class="lab">${o.y}</span>
     </div>`).join('');
 
-  const per=done.map(t=>({t,v:((t.expense&&t.expense.total)||0)/daysOf(t)}))
-    .filter(o=>o.v>0).sort((a,b)=>b.v-a.v);
+  // 1일(숙소는 1박) 평균 (선택 지표)
+  const isHotel=dMetric==='hotel';
+  const unit=isHotel?'천원/박':'천원/일';
+  document.getElementById('dTitle').textContent=isHotel?'1박 평균 숙소비':`1일 평균 ${METRIC_LABEL[dMetric]}`;
+  document.getElementById('dSub').textContent=isHotel
+    ?'숙소비 ÷ 숙박일수(박) · 높은 순'
+    :`${METRIC_LABEL[dMetric]} ÷ 여행일수 · 높은 순`+(dMetric==='flight'?' · 항공은 참고용':'');
+  const per=done.map(t=>{
+    const days=daysOf(t), nights=Math.max(days-1,1);
+    return {t,v:mval(t,dMetric)/(isHotel?nights:days)};
+  }).filter(o=>o.v>0).sort((a,b)=>b.v-a.v);
   const pmax=Math.max(...per.map(o=>o.v),1);
   document.getElementById('dBars').innerHTML=per.map(o=>`
     <div class="dbar">
       <span class="n">${o.t.title} <span style="color:var(--mute);font-weight:400">’${o.t.start.slice(2,4)}</span></span>
       <div class="track"><div class="fill" style="width:${o.v/pmax*100}%;background:${RHEX[o.t.region]||'#999'}"></div></div>
-      <span class="v">${Math.round(o.v/1000).toLocaleString()}천원/일</span>
-    </div>`).join('')||'<div style="font-size:12px;color:var(--mute)">데이터 없음</div>';
+      <span class="v">${Math.round(o.v/1000).toLocaleString()}${unit}</span>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--mute)">해당 지표의 기록이 없습니다</div>';
 }
 
 /* ── 지도 ── */
