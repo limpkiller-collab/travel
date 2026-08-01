@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>나의 여행기록 | Travel Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FAFAF9; --ink:#1a1a1a; --mute:#8a8580; --line:#e7e4e0;
+  --paper:#fff; --soft:#6b6560;
+  --up:#2563eb;
+  --r-ne:#d97706; --r-se:#059669; --r-eu:#6366f1; --r-kr:#0ea5e9; --r-am:#db2777;
+}
+body{
+  font-family:'Noto Sans KR','Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+  min-height:100vh;display:flex;flex-direction:column;
+}
+.wrap{width:100%;max-width:920px;margin:0 auto;padding:0 28px;flex:1;display:flex;flex-direction:column}
+
+/* ── masthead ── */
+header{padding:80px 0 0}
+.mark{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);
+}
+.mark::before{content:'';width:26px;height:1px;background:var(--mute)}
+h1{margin-top:22px;font-size:clamp(38px,7.5vw,56px);font-weight:800;letter-spacing:-.045em;line-height:1.08}
+h1 em{font-style:normal;color:var(--mute)}
+.lede{margin-top:18px;font-size:15.5px;line-height:1.85;color:var(--soft);max-width:46ch}
+
+.meta-row{
+  margin-top:30px;padding-top:20px;border-top:1px solid var(--line);
+  display:flex;gap:32px;flex-wrap:wrap;font-size:12.5px;color:var(--mute);
+}
+.meta-row b{display:block;font-size:19px;color:var(--ink);font-weight:800;letter-spacing:-.02em;margin-bottom:2px;font-variant-numeric:tabular-nums}
+
+/* ── filters ── */
+.filters{margin-top:36px;display:flex;flex-direction:column;gap:12px}
+.frow{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.flabel{flex-shrink:0;width:34px;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--mute);text-transform:uppercase}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  font-family:inherit;font-size:13px;font-weight:600;color:var(--soft);
+  background:transparent;border:1px solid var(--line);border-radius:99px;
+  padding:7px 15px;cursor:pointer;transition:.18s;
+}
+.chip:hover{border-color:var(--mute);color:var(--ink)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip:disabled{opacity:.35;cursor:default}
+.chip:disabled:hover{border-color:var(--line);color:var(--soft)}
+
+/* ── map ── */
+.map-sec{margin-top:44px;position:relative}
+.sec-title{
+  font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);
+  display:flex;align-items:center;gap:10px;
+}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--line)}
+.map-box{margin-top:16px;position:relative}
+.map-box svg{display:block;width:100%;height:auto}
+.land{fill:#EFECE7;stroke:#E2DED8;stroke-width:.5}
+.pin{cursor:pointer;transition:opacity .25s}
+.pin.dim{opacity:.16;pointer-events:none}
+.pin circle.core{stroke:#fff;stroke-width:1.4}
+.pin .halo{fill:none;stroke-width:1.2;opacity:.5}
+.pin.up .halo{animation:pulse 2s infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.6}70%{transform:scale(2.4);opacity:0}100%{opacity:0}}
+.map-tip{
+  position:absolute;pointer-events:none;background:var(--ink);color:#fff;
+  font-size:11.5px;font-weight:600;padding:6px 10px;border-radius:7px;
+  transform:translate(-50%,-135%);white-space:nowrap;opacity:0;transition:opacity .15s;z-index:5;
+}
+.map-tip small{display:block;font-weight:400;color:#bbb;font-size:10px}
+.map-legend{
+  margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--mute);
+}
+.map-legend span{display:inline-flex;align-items:center;gap:6px}
+.map-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* ── list ── */
+.list{margin-top:48px;border-top:1px solid var(--line)}
+.row{
+  display:block;text-decoration:none;color:inherit;
+  border-bottom:1px solid var(--line);
+  padding:34px 4px 32px;position:relative;
+  transition:padding .35s cubic-bezier(.2,.7,.3,1),background .4s;
+}
+.row::after{
+  content:'';position:absolute;left:-28px;right:-28px;top:0;bottom:0;
+  background:var(--paper);border-radius:16px;opacity:0;
+  box-shadow:0 18px 40px -18px rgba(60,50,40,.22);
+  transition:opacity .3s;z-index:0;
+}
+.row:hover::after{opacity:1}
+.row>*{position:relative;z-index:1}
+.row:hover{padding-left:26px;padding-right:26px}
+.row.flash::after{opacity:1}
+.row.flash{padding-left:26px;padding-right:26px}
+
+.no{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--mute);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rdot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.badge{
+  display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;
+  padding:3px 9px;border-radius:99px;
+}
+.badge.done{background:#efece8;color:#8a8580}
+.badge.up{background:rgba(37,99,235,.09);color:var(--up)}
+.badge.live{background:rgba(5,150,105,.09);color:#059669}
+.title{margin-top:11px;display:flex;align-items:baseline;gap:13px;flex-wrap:wrap}
+.title h2{font-size:clamp(23px,3.9vw,30px);font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.title .en{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--mute);letter-spacing:.02em}
+.when{
+  margin-top:11px;font-size:13.5px;color:var(--soft);font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+}
+.when .dot{width:3px;height:3px;border-radius:50%;background:var(--mute);display:inline-block}
+.blurb{margin-top:13px;font-size:13.5px;line-height:1.75;color:var(--soft);max-width:52ch}
+.places{margin-top:9px;font-size:12px;color:var(--mute)}
+.places b{color:var(--soft);font-weight:700}
+.bottom{margin-top:22px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.facts{display:flex;gap:26px;flex-wrap:wrap;font-size:11.5px;color:var(--mute)}
+.facts b{display:block;font-size:15px;color:var(--ink);font-weight:700;margin-bottom:1px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.facts .total b{font-size:17px;font-weight:800}
+.open{
+  flex-shrink:0;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;
+  padding-bottom:3px;border-bottom:1.5px solid var(--ink);transition:gap .25s;white-space:nowrap;
+}
+.row:hover .open{gap:13px}
+.emoji{position:absolute;right:6px;top:30px;font-size:30px;opacity:.14;transition:opacity .35s,transform .35s}
+.row:hover .emoji{opacity:1;transform:translateY(-2px) rotate(-4deg)}
+.empty{padding:70px 4px;text-align:center;color:var(--mute);font-size:14px;border-bottom:1px solid var(--line)}
+
+/* ── stats ── */
+.stats-sec{margin-top:56px}
+.stats-grid{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:44px}
+@media(max-width:720px){.stats-grid{grid-template-columns:1fr}}
+.chart-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.chart-sub{font-size:11.5px;color:var(--mute);margin-bottom:14px}
+.ybars{display:flex;align-items:flex-end;gap:10px}
+.ybar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
+.ybar .col{width:100%;max-width:44px;background:var(--ink);border-radius:5px 5px 2px 2px;transition:height .5s cubic-bezier(.2,.7,.3,1);position:relative}
+.ybar .col.zero{background:var(--line)}
+.ybar .val{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:var(--soft);white-space:nowrap}
+.ybar .lab{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;color:var(--mute)}
+.dbars{display:flex;flex-direction:column;gap:9px}
+.dbar{display:grid;grid-template-columns:88px 1fr 74px;align-items:center;gap:10px;font-size:11.5px}
+.dbar .n{color:var(--soft);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbar .track{height:7px;border-radius:4px;background:#F0EDE8;overflow:hidden}
+.dbar .fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+.dbar .v{font-family:'Inter',sans-serif;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.footnote{margin-top:30px;font-size:11.5px;color:var(--mute);line-height:1.7}
+footer{
+  margin-top:auto;padding:48px 0 58px;font-size:12px;color:var(--mute);
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+footer a{color:var(--soft);text-decoration:none;border-bottom:1px solid var(--line)}
+footer a:hover{color:var(--ink)}
+@media(max-width:640px){
+  header{padding-top:48px}
+  .row:hover,.row.flash{padding-left:4px;padding-right:4px}
+  .row::after{left:-14px;right:-14px}
+  .emoji{top:26px;font-size:24px;opacity:.16}
+  .facts{gap:16px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="mark">Travel Archive</div>
+  <h1>나의 여행기록<em>.</em></h1>
+  <p class="lede">다녀온 여행과 다가올 여행. 일정·맛집·카페·숙소·경비의 기록을 한곳에 모았습니다.</p>
+  <div class="meta-row" id="summary"></div>
+
+  <div class="filters">
+    <div class="frow"><span class="flabel">연도</span><div class="chips" id="yearChips"></div></div>
+    <div class="frow"><span class="flabel">지역</span><div class="chips" id="regionChips"></div></div>
+  </div>
+</header>
+
+<section class="map-sec">
+  <div class="sec-title">방문 지도</div>
+  <div class="map-box" id="mapBox"><div class="map-tip" id="mapTip"></div></div>
+  <div class="map-legend" id="mapLegend"></div>
+</section>
+
+<main class="list" id="list"></main>
+
+<section class="stats-sec">
+  <div class="sec-title">통계</div>
+  <div class="stats-grid">
+    <div>
+      <div class="chart-title">연도별 총 경비</div>
+      <div class="chart-sub" id="ySub"></div>
+      <div class="ybars" id="yBars"></div>
+    </div>
+    <div>
+      <div class="chart-title">1일 평균 경비</div>
+      <div class="chart-sub">총 경비 ÷ 여행일수 · 높은 순</div>
+      <div class="dbars" id="dBars"></div>
+    </div>
+  </div>
+</section>
+
+<p class="footnote" id="footnote"></p>
+
+<footer>
+  <div>Last updated <span id="updated">2026.08.01</span></div>
+  <div>단일 HTML 대시보드 · <a href="https://github.com/limpkiller-collab">github.com/limpkiller-collab</a></div>
+</footer>
+
+</div>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   여행 데이터 — 새 여행은 TRIPS 배열에 항목을 추가하면 됩니다.
+   region : '동남아' | '동북아' | '유럽' | '한국' | '미주'
+   cities : 지도 핀 [{n:이름, c:[위도,경도]}] (여러 개 가능)
+   expense: 실제 사용경비. flight=항공(과거 여행은 시트의 교통비), hotel=숙소,
+            etc=그 외 전부. partial:true → '일부 기록' 표시.
+   budget : 예정 여행의 예상 경비(선택). expense가 없으면 budget 표시.
+   fb     : Firebase 실시간 연동 {path, schema:1|2}. 로드되면 expense를 덮어씀.
+   status는 종료일 기준 자동 판정(예정이면 D-day).
+   ══════════════════════════════════════════════════════════════ */
+const SHEET=g=>'https://docs.google.com/spreadsheets/d/117YMBvl0dv0htleTRipXuQ3Ave4yD-k4UTGe98wbveY/edit?gid='+g+'#gid='+g;
+const FB_BASE='https://travel-dashboard-sync-default-rtdb.asia-southeast1.firebasedatabase.app/';
+
+const TRIPS=[
+  {id:'jeju2021',title:'제주도',en:'Jeju, Korea',emoji:'🍊',region:'한국',
+   start:'2021-10-03',end:'2021-10-09',
+   cities:[{n:'제주',c:[33.50,126.53]}],
+   expense:{total:1137580,flight:650900,hotel:430000,etc:null},url:SHEET(969336753),linkLabel:'기록 ↗'},
+  {id:'danang2022',title:'다낭 · 호이안',en:'Da Nang · Hoi An, Vietnam',emoji:'🏖️',region:'동남아',
+   start:'2022-07-02',end:'2022-07-10',
+   cities:[{n:'다낭',c:[16.05,108.20]}],
+   expense:{total:1580900,flight:552400,hotel:323439,etc:1033500},url:SHEET(753396020),linkLabel:'기록 ↗'},
+  {id:'klphuket2022',title:'쿠알라룸푸르 · 푸켓',en:'Kuala Lumpur · Phuket',emoji:'🏝️',region:'동남아',
+   start:'2022-11-05',end:'2022-11-12',
+   cities:[{n:'쿠알라룸푸르',c:[3.14,101.69]},{n:'푸켓',c:[7.88,98.39]}],
+   expense:{total:2525793,flight:934446,hotel:474759,etc:1116589},url:SHEET(1461014603),linkLabel:'기록 ↗'},
+  {id:'chiangmai2023',title:'치앙마이',en:'Chiang Mai, Thailand',emoji:'🐘',region:'동남아',
+   start:'2023-03-04',end:'2023-03-12',
+   cities:[{n:'치앙마이',c:[18.79,98.98]}],
+   expense:{total:1613371,flight:793200,hotel:284142,etc:561112},url:SHEET(1916165493),linkLabel:'기록 ↗'},
+  {id:'bangkok2023',title:'방콕',en:'Bangkok, Thailand',emoji:'🛺',region:'동남아',
+   start:'2023-06-17',end:'2023-06-25',
+   cities:[{n:'방콕',c:[13.76,100.50]}],
+   expense:{total:1582678,flight:489020,hotel:350723,etc:751335},url:SHEET(1123521021),linkLabel:'기록 ↗'},
+  {id:'italy2023',title:'이탈리아 남부',en:'Southern Italy',emoji:'🍋',region:'유럽',
+   start:'2023-10-14',end:'2023-10-22',
+   cities:[{n:'나폴리',c:[40.85,14.27]}],
+   expense:{total:2517578,flight:1028643,hotel:889032,etc:1622509},url:SHEET(91280577),linkLabel:'기록 ↗'},
+  {id:'dalat2024',title:'달랏',en:'Da Lat, Vietnam',emoji:'🌲',region:'동남아',
+   start:'2024-01-06',end:'2024-01-10',
+   cities:[{n:'달랏',c:[11.94,108.44]}],
+   expense:{total:3893109,flight:2270600,hotel:0,etc:1587869},url:SHEET(1383980815),linkLabel:'기록 ↗'},
+  {id:'sggili2024',title:'싱가포르 · 길리',en:'Singapore · Gili',emoji:'🦁',region:'동남아',
+   start:'2024-06-28',end:'2024-07-07',
+   cities:[{n:'싱가포르',c:[1.35,103.82]},{n:'길리',c:[-8.35,116.04]}],
+   expense:{total:2879588,flight:1708123,hotel:423871,etc:747595},url:SHEET(1751057594),linkLabel:'기록 ↗'},
+  {id:'hongkong2024',title:'홍콩',en:'Hong Kong',emoji:'🥟',region:'동북아',
+   start:'2024-10-12',end:'2024-10-15',
+   cities:[{n:'홍콩',c:[22.32,114.17]}],
+   expense:{total:1166412,flight:470256,hotel:233104,etc:435852},url:SHEET(827536284),linkLabel:'기록 ↗'},
+  {id:'bali2024',title:'발리',en:'Bali, Indonesia',emoji:'🌴',region:'동남아',
+   start:'2024-11-30',end:'2024-12-08',
+   cities:[{n:'발리',c:[-8.65,115.22]}],
+   expense:{total:1885247,flight:768000,hotel:360738,etc:738509},url:SHEET(828988347),linkLabel:'기록 ↗'},
+  {id:'nhatrang2025',title:'나트랑',en:'Nha Trang, Vietnam',emoji:'🐚',region:'동남아',
+   start:'2025-04-19',end:'2025-04-22',
+   cities:[{n:'나트랑',c:[12.24,109.19]}],
+   expense:{total:1268292,flight:427800,hotel:111691,etc:728800},url:SHEET(1338724770),linkLabel:'기록 ↗'},
+  {id:'turkiye2025',title:'튀르키예',en:'Türkiye',emoji:'🎈',region:'유럽',
+   start:'2025-06-20',end:'2025-07-02',
+   cities:[{n:'이스탄불',c:[41.01,28.98]},{n:'카파도키아',c:[38.66,34.85]}],
+   expense:{total:1853683,flight:738504,hotel:378128,etc:737051},url:SHEET(475009608),linkLabel:'기록 ↗'},
+  {id:'gili2025',title:'길리',en:'Gili Islands, Indonesia',emoji:'🤿',region:'동남아',
+   start:'2025-07-04',end:'2025-07-13',
+   cities:[{n:'길리',c:[-8.35,116.04]}],
+   expense:{total:2216834,flight:1163765,hotel:328013,etc:725056},url:SHEET(869026515),linkLabel:'기록 ↗'},
+  {id:'chiangmai2025',title:'치앙마이',en:'Chiang Mai, Thailand',emoji:'🐘',region:'동남아',
+   start:'2025-12-13',end:'2025-12-21',
+   cities:[{n:'치앙마이',c:[18.79,98.98]}],
+   expense:{total:1929770,flight:934600,hotel:301433,etc:693737},url:SHEET(898775099),linkLabel:'기록 ↗'},
+  {id:'taichung2026',title:'타이중',en:'Taichung, Taiwan',emoji:'🏮',region:'동북아',
+   start:'2026-04-17',end:'2026-04-20',
+   desc:'휴식과 미식의 여정. 르웨탄 호수 데이트립과 야시장, 그리고 감성 카페 투어.',
+   places:{맛집:25,카페:19,숙소:2},
+   cities:[{n:'타이중',c:[24.15,120.67]}],
+   expense:{total:265944,flight:233769,hotel:null,etc:32175,partial:true,note:'1~2일차 지출만 기록됨 · 숙소 미기록'},
+   fb:{path:'dashboards/taichung2026/expense',schema:1},
+   url:'https://limpkiller-collab.github.io/taichung-travel-2026/'},
+  {id:'france2026',title:'프랑스',en:'South of France · Paris',emoji:'🗼',region:'유럽',
+   start:'2026-06-02',end:'2026-06-13',
+   desc:'남프랑스에서 파리까지 이어지는 열이틀. 가장 길고 촘촘한 일정.',
+   places:{맛집:26,카페:18,관광:33,숙소:5},
+   cities:[{n:'니스',c:[43.70,7.27]},{n:'파리',c:[48.86,2.35]}],
+   expense:{total:5888955,flight:2280400,hotel:1614542,etc:1994013},
+   fb:{path:'dashboards/france2026/expenses',schema:2},
+   url:'https://limpkiller-collab.github.io/france-travel-2026/'},
+  {id:'hiroshima2026',title:'히로시마',en:'Hiroshima, Japan',emoji:'⛩️',region:'동북아',
+   start:'2026-07-24',end:'2026-07-26',
+   desc:'미야지마와 평화기념공원을 묶은 짧은 주말 여정. 제주항공 왕복.',
+   places:{맛집:15,카페:13,관광:13,숙소:1},
+   cities:[{n:'히로시마',c:[34.39,132.46]}],
+   expense:{total:1036320,flight:452230,hotel:211152,etc:372938},
+   fb:{path:'dashboards/hiroshima2026/expenses',schema:2},
+   url:'https://limpkiller-collab.github.io/hiroshima-travel-2026/'}
+  /* ── 예정 여행 예시 (복사해서 사용) ──────────────────────────
+  ,{id:'bangkok2027',title:'방콕',en:'Bangkok, Thailand',emoji:'🛺',region:'동남아',
+    start:'2027-01-15',end:'2027-01-19',desc:'설 연휴 방콕.',
+    cities:[{n:'방콕',c:[13.76,100.50]}],
+    budget:{total:1500000,flight:600000,hotel:400000,etc:500000},
+    url:''}
+  ─────────────────────────────────────────────────────────── */
+];
+
+const REGIONS=['동남아','동북아','유럽','한국','미주'];
+const RCOLOR={'동남아':'var(--r-se)','동북아':'var(--r-ne)','유럽':'var(--r-eu)','한국':'var(--r-kr)','미주':'var(--r-am)'};
+const RHEX={'동남아':'#059669','동북아':'#d97706','유럽':'#6366f1','한국':'#0ea5e9','미주':'#db2777'};
+const fmt=n=>n==null?'—':'₩'+Math.round(n).toLocaleString('ko-KR');
+const fmtMan=n=>{if(n==null)return'—';const man=n/10000;
+  return man>=10000?(man/10000).toFixed(1).replace(/\.0$/,'')+'억원':Math.round(man).toLocaleString('ko-KR')+'만원';};
+const today=new Date();today.setHours(0,0,0,0);
+const D=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const daysOf=t=>Math.round((D(t.end)-D(t.start))/86400000)+1;
+const nightsLabel=t=>{const d=daysOf(t);return (d-1)+'박 '+d+'일';};
+const dateLabel=t=>{
+  const sy=t.start.slice(0,4),ey=t.end.slice(0,4);
+  const s=t.start.replaceAll('-','.');
+  const e=(sy===ey?t.end.slice(5):t.end).replaceAll('-','.');
+  return s+' – '+e;
+};
+function status(t){
+  const s=D(t.start),e=D(t.end);
+  if(e<today)return{k:'done',label:'다녀옴'};
+  if(s>today)return{k:'up',label:'D-'+Math.ceil((s-today)/86400000)};
+  return{k:'up',label:'여행 중'};
+}
+let fYear='전체',fRegion='전체';
+const live={};   // id → true (Firebase 데이터 반영됨)
+
+function chips(el,items,cur,onpick){
+  el.innerHTML='';
+  items.forEach(({v,n})=>{
+    const b=document.createElement('button');
+    b.className='chip'+(v===cur?' on':'');
+    b.textContent=n!=null?`${v} (${n})`:v;
+    b.disabled=n===0&&v!=='전체';
+    b.onclick=()=>onpick(v);
+    el.appendChild(b);
+  });
+}
+
+function selected(){
+  return TRIPS.filter(t=>(fYear==='전체'||t.start.slice(0,4)===fYear)
+                       &&(fRegion==='전체'||t.region===fRegion));
+}
+
+function render(){
+  const years=[...new Set(TRIPS.map(t=>t.start.slice(0,4)))].sort();
+  const byY=t=>fYear==='전체'||t.start.slice(0,4)===fYear;
+  const byR=t=>fRegion==='전체'||t.region===fRegion;
+  chips(document.getElementById('yearChips'),
+    [{v:'전체'},...years.map(y=>({v:y,n:TRIPS.filter(t=>t.start.slice(0,4)===y&&byR(t)).length}))],
+    fYear,v=>{fYear=v;render();});
+  chips(document.getElementById('regionChips'),
+    [{v:'전체'},...REGIONS.map(r=>({v:r,n:TRIPS.filter(t=>t.region===r&&byY(t)).length}))],
+    fRegion,v=>{fRegion=v;render();});
+
+  const sel=selected();
+  const upcoming=sel.filter(t=>status(t).k==='up').sort((a,b)=>a.start<b.start?-1:1);
+  const past=sel.filter(t=>status(t).k==='done').sort((a,b)=>a.start<b.start?1:-1);
+  const ordered=[...upcoming,...past];
+
+  const done=sel.filter(t=>status(t).k==='done');
+  const days=sel.reduce((s,t)=>s+daysOf(t),0);
+  const spent=done.reduce((s,t)=>s+((t.expense&&t.expense.total)||0),0);
+  const countries=new Set(sel.map(t=>t.en?t.en.split(',').pop().trim():t.title));
+  document.getElementById('summary').innerHTML=
+    `<div><b>${sel.length}</b>번의 여행</div>
+     <div><b>${days}</b>일</div>
+     <div><b>${upcoming.length}</b>번의 예정</div>
+     <div><b>${fmtMan(spent)}</b>총 사용경비</div>`;
+
+  // list
+  const list=document.getElementById('list');
+  list.innerHTML='';
+  if(!ordered.length)list.innerHTML='<div class="empty">조건에 맞는 여행이 없습니다.</div>';
+  let anyPartial=false;
+  ordered.forEach((t,i)=>{
+    const st=status(t);
+    const money=t.expense||t.budget||null;
+    const isPlan=!t.expense&&t.budget;
+    if(t.expense&&t.expense.partial)anyPartial=true;
+    const placesTxt=Object.entries(t.places||{}).map(([k,v])=>`${k} <b>${v}</b>`).join(' · ');
+    const a=document.createElement(t.url?'a':'div');
+    if(t.url)a.href=t.url;
+    a.className='row';a.id='trip-'+t.id;
+    a.innerHTML=`
+      <span class="emoji">${t.emoji||'✈️'}</span>
+      <div class="no"><span class="rdot" style="background:${RCOLOR[t.region]||'var(--mute)'}"></span>
+        ${String(i+1).padStart(2,'0')} — ${t.region}
+        <span class="badge ${st.k}">${st.label}</span>
+        ${live[t.id]?'<span class="badge live">실시간</span>':''}</div>
+      <div class="title"><h2>${t.title}</h2><span class="en">${t.en||''}</span></div>
+      <div class="when">${dateLabel(t)} <span class="dot"></span> ${nightsLabel(t)}</div>
+      ${t.desc?`<p class="blurb">${t.desc}</p>`:''}
+      ${placesTxt?`<div class="places">${placesTxt}</div>`:''}
+      <div class="bottom">
+        ${money?`<div class="facts">
+          <div class="total"><b>${fmt(money.total)}${t.expense&&t.expense.partial?' *':''}</b>${isPlan?'예상 경비':'총 경비'}</div>
+          <div><b>${fmt(money.flight)}</b>항공 ¹</div>
+          <div><b>${fmt(money.hotel)}</b>숙소</div>
+          <div><b>${fmt(money.etc)}</b>기타 경비</div>
+        </div>`:'<div class="facts"></div>'}
+        ${t.url?`<span class="open">${t.linkLabel||'열기 ↗'}</span>`:''}
+      </div>`;
+    list.appendChild(a);
+  });
+
+  renderStats(sel,done);
+  renderPins(sel);
+
+  const notes=[];
+  if(anyPartial){
+    const pt=ordered.find(t=>t.expense&&t.expense.partial);
+    notes.push('* '+pt.title+': '+(pt.expense.note||'사용경비가 일부만 기록되었습니다.'));
+  }
+  notes.push('¹ 2021~2025 여행은 스프레드시트의 교통비(항공+현지 장거리 교통) 기준입니다.');
+  notes.push('경비는 사용경비 기록(지출 당시 환율로 원화 환산) 기준이며, 기타 경비는 항공·숙소를 제외한 모든 지출의 합입니다. 2026년 이후 여행은 대시보드 기록과 실시간 동기화됩니다.');
+  document.getElementById('footnote').innerHTML=notes.join('<br>');
+}
+
+/* ── 통계 ── */
+function renderStats(sel,done){
+  const years=[...new Set(TRIPS.map(t=>t.start.slice(0,4)))].sort();
+  const yTot=years.map(y=>({y,v:done.filter(t=>t.start.slice(0,4)===y)
+    .reduce((s,t)=>s+((t.expense&&t.expense.total)||0),0)}));
+  const max=Math.max(...yTot.map(o=>o.v),1);
+  document.getElementById('ySub').textContent=
+    fRegion==='전체'?'다녀온 여행의 사용경비 합계':fRegion+' 여행의 사용경비 합계';
+  document.getElementById('yBars').innerHTML=yTot.map(o=>`
+    <div class="ybar">
+      <span class="val">${o.v?fmtMan(o.v):''}</span>
+      <div class="col${o.v?'':' zero'}" style="height:${Math.max(Math.round(o.v/max*110),3)}px"></div>
+      <span class="lab">${o.y}</span>
+    </div>`).join('');
+
+  const per=done.map(t=>({t,v:((t.expense&&t.expense.total)||0)/daysOf(t)}))
+    .filter(o=>o.v>0).sort((a,b)=>b.v-a.v);
+  const pmax=Math.max(...per.map(o=>o.v),1);
+  document.getElementById('dBars').innerHTML=per.map(o=>`
+    <div class="dbar">
+      <span class="n">${o.t.title} <span style="color:var(--mute);font-weight:400">’${o.t.start.slice(2,4)}</span></span>
+      <div class="track"><div class="fill" style="width:${o.v/pmax*100}%;background:${RHEX[o.t.region]||'#999'}"></div></div>
+      <span class="v">${Math.round(o.v/1000).toLocaleString()}천원/일</span>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--mute)">데이터 없음</div>';
+}
+
+/* ── 지도 ── */
+let mapReady=false,pinLayer=null,projection=null;
+function initMap(){
+  if(typeof d3==='undefined'||typeof topojson==='undefined'){document.querySelector('.map-sec').style.display='none';return;}
+  const box=document.getElementById('mapBox');
+  const W=920,H=430;
+  const svg=d3.select(box).insert('svg',':first-child')
+    .attr('viewBox',`0 0 ${W} ${H}`).attr('preserveAspectRatio','xMidYMid meet');
+  projection=d3.geoNaturalEarth1().center([80,22]).scale(340).translate([W/2,H/2]);
+  const path=d3.geoPath(projection);
+  fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    .then(r=>r.json())
+    .then(world=>{
+      const land=topojson.feature(world,world.objects.land);
+      svg.append('path').datum(land).attr('class','land').attr('d',path);
+      pinLayer=svg.append('g');
+      mapReady=true;
+      renderPins(selected());
+    })
+    .catch(()=>{document.querySelector('.map-sec').style.display='none';});
+  document.getElementById('mapLegend').innerHTML=REGIONS.map(r=>
+    `<span><i style="background:${RHEX[r]}"></i>${r}</span>`).join('');
+}
+function renderPins(sel){
+  if(!mapReady||!pinLayer)return;
+  const tip=document.getElementById('mapTip');
+  const ids=new Set(sel.map(t=>t.id));
+  const pins=[];
+  TRIPS.forEach(t=>(t.cities||[]).forEach(c=>pins.push({t,c})));
+  pinLayer.selectAll('*').remove();
+  pins.forEach(({t,c})=>{
+    const[x,y]=projection([c.c[1],c.c[0]]);
+    const st=status(t);
+    const g=pinLayer.append('g')
+      .attr('class','pin'+(ids.has(t.id)?'':' dim')+(st.k==='up'?' up':''))
+      .attr('transform',`translate(${x},${y})`);
+    g.append('circle').attr('class','halo').attr('r',5).attr('stroke',RHEX[t.region]).attr('style','transform-origin:center;transform-box:fill-box');
+    g.append('circle').attr('class','core').attr('r',4.2).attr('fill',RHEX[t.region]);
+    g.on('mouseenter',()=>{
+      const box=document.getElementById('mapBox');
+      const svgEl=box.querySelector('svg');
+      const pt=svgEl.createSVGPoint();pt.x=x;pt.y=y;
+      const sp=pt.matrixTransform(svgEl.getScreenCTM());
+      const bp=box.getBoundingClientRect();
+      tip.style.left=(sp.x-bp.x)+'px';tip.style.top=(sp.y-bp.y)+'px';
+      tip.innerHTML=`${t.emoji||''} ${t.title} · ${c.n}<small>${dateLabel(t)}</small>`;
+      tip.style.opacity=1;
+    }).on('mouseleave',()=>tip.style.opacity=0)
+    .on('click',()=>{
+      const row=document.getElementById('trip-'+t.id);
+      if(row){row.scrollIntoView({behavior:'smooth',block:'center'});
+        row.classList.add('flash');setTimeout(()=>row.classList.remove('flash'),1600);}
+    });
+  });
+}
+
+/* ── Firebase 실시간 경비 ── */
+function applyFb(t,items){
+  if(!items)return false;
+  const arr=Array.isArray(items)?items.filter(Boolean):Object.values(items);
+  if(!arr.length)return false;
+  let flight=0,hotel=0,etc=0;
+  arr.forEach(e=>{
+    let v;
+    if(t.fb.schema===1){v=Number(e.amountKRW)||0;}
+    else{
+      const amt=Number(e.amount)||0;
+      v=(e.currency==='KRW'||!e.currency)?amt:amt*(Number(e.exchangeRate)||0);
+    }
+    if(e.category==='flight')flight+=v;
+    else if(e.category==='hotel')hotel+=v;
+    else etc+=v;
+  });
+  const partial=t.expense&&t.expense.partial;
+  const note=t.expense&&t.expense.note;
+  t.expense={total:flight+hotel+etc,
+    flight:flight||null,hotel:hotel||null,etc:etc||null,
+    partial,note};
+  return true;
+}
+function syncFirebase(){
+  const targets=TRIPS.filter(t=>t.fb);
+  Promise.allSettled(targets.map(t=>
+    fetch(FB_BASE+t.fb.path+'.json').then(r=>r.ok?r.json():null)
+      .then(d=>{if(applyFb(t,d))live[t.id]=true;})
+  )).then(()=>{if(Object.keys(live).length)render();});
+}
+
+render();
+initMap();
+syncFirebase();
+</script>
+</body>
+</html>
